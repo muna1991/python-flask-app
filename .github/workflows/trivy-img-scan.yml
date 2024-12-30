@@ -1,4 +1,4 @@
-name: Trivy Docker Image Scan
+name: Trivy Docker Image Scan and ECR Push
 
 on:
   push:
@@ -25,9 +25,24 @@ jobs:
         docker build -t my-app:latest .
 
     - name: Run Trivy Scan
+      id: trivy-scan
       run: |
         echo "Running Trivy scan on Docker image..."
-        trivy image --severity HIGH,CRITICAL --no-progress my-app:latest > trivy-results.txt
+        trivy image \
+          --format table \
+          --exit-code 1 \
+          --ignore-unfixed \
+          --vuln-type os,library \
+          --severity CRITICAL,HIGH \
+          my-app:latest > trivy-results.txt || true
+
+    - name: Check Vulnerabilities
+      id: vuln-check
+      run: |
+        if grep -q "CRITICAL" trivy-results.txt || grep -q "HIGH" trivy-results.txt; then
+          echo "Vulnerabilities found! Exiting..."
+          exit 1
+        fi
 
     - name: Upload Trivy Scan Results
       if: always()
@@ -35,3 +50,23 @@ jobs:
       with:
         name: trivy-scan-results
         path: trivy-results.txt
+
+  push-to-ecr:
+    needs: trivy-scan
+    runs-on: self-hosted
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    - name: Authenticate with ECR
+      env:
+        AWS_REGION: us-east-1 # Replace with your region
+      run: |
+        echo "Authenticating with ECR..."
+        aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin <YOUR_ACCOUNT_ID>.dkr.ecr.$AWS_REGION.amazonaws.com
+
+    - name: Push Docker Image to ECR
+      run: |
+        echo "Pushing Docker image to ECR..."
+        docker tag my-app:latest <YOUR_ACCOUNT_ID>.dkr.ecr.$AWS_REGION.amazonaws.com/my-app:latest
+        docker push <YOUR_ACCOUNT_ID>.dkr.ecr.$AWS_REGION.amazonaws.com/my-app:latest
