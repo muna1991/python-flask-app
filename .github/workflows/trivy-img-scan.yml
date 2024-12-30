@@ -27,7 +27,7 @@ jobs:
     - name: Run Trivy Scan
       run: |
         echo "Running Trivy scan on Docker image..."
-        trivy image --severity HIGH,CRITICAL --no-progress my-app:latest
+        trivy image --severity HIGH,CRITICAL --no-progress my-app:latest > trivy-results.txt
 
     - name: Upload Trivy Scan Results
       if: always()
@@ -35,5 +35,3 @@ jobs:
       with:
         name: trivy-scan-results
         path: trivy-results.txt
-      run: |
-        trivy image --severity HIGH,CRITICAL --no-progress my-app:latest > trivy-results.txt
