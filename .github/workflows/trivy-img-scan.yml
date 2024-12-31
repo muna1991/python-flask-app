@@ -1,37 +1,100 @@
-name: Trivy Docker Image Scan
+name: "Build and push docker image to ECR by using Workflow"
 
 on:
   push:
     branches:
       - main
   pull_request:
+    branches:
+      - main    
 
 jobs:
-  trivy-scan:
-    runs-on: self-hosted
+  call-terraform:
+    strategy:
+      matrix:
+        target: [dev, stage, prod] 
+    uses: muna1991/Terrform-Library/.github/workflows/terraform.yml@main  # Reference to the shared workflow
+    with:
+      target: ${{ matrix.target }} 
+      bucket_name: "mithu-aditya-s3-buckets"
+      region: "ap-south-1"
+    secrets:
+      aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      aws_session_token: ${{ secrets.AWS_SESSION_TOKEN }}
 
-    steps:
-    - name: Checkout Code
-      uses: actions/checkout@v3
 
-    - name: Set up Docker
-      run: |
-        echo "Setting up Docker..."
-        docker --version
+# name: Trivy Docker Image Scan and ECR Push
 
-    - name: Build Docker Image
-      run: |
-        echo "Building Docker image..."
-        docker build -t my-app:latest .
+# on:
+#   push:
+#     branches:
+#       - main
+#   pull_request:
 
-    - name: Run Trivy Scan
-      run: |
-        echo "Running Trivy scan on Docker image..."
-        trivy image --severity HIGH,CRITICAL --no-progress my-app:latest > trivy-results.txt
+# jobs:
+#   Docker-build:
+#     runs-on: self-hosted
+#     steps:
+#     - name: Checkout Code
+#       uses: actions/checkout@v3
 
-    - name: Upload Trivy Scan Results
-      if: always()
-      uses: actions/upload-artifact@v3
-      with:
-        name: trivy-scan-results
-        path: trivy-results.txt
+#     - name: Build Docker Image
+#       run: |
+#         echo "Building Docker image..."
+#         docker build --no-cache -t ${{ inputs.image_name }} .
+
+#   Trivy-Scan:
+#     runs-on: self-hosted
+#     needs: Docker-build
+#     steps:
+#     - name: Run Trivy Scan
+#       id: trivy-scan
+#       run: |
+#         echo "Running Trivy scan on Docker image..."
+#         trivy image \
+#           --format table \
+#           --exit-code 1 \
+#           --ignore-unfixed \
+#           --pkg-types os,library \
+#           --severity CRITICAL \
+#           my-app:latest > trivy-results.txt || true
+
+#     - name: Check Vulnerabilities
+#       id: vuln-check
+#       run: |
+#         critical_count=$(grep -oP 'CRITICAL:\s*\K\d+' trivy-results.txt)
+#         if [[ "$critical_count" -eq 0 ]]; then
+#           echo "No critical vulnerabilities found. Proceeding to execution."
+#         else
+#           echo "Critical vulnerabilities detected: $critical_count"
+#           echo "Exiting to address the vulnerabilities."
+#           exit 1  
+#         fi
+
+#     - name: Upload Trivy Scan Results
+#       if: always()
+#       uses: actions/upload-artifact@v4
+#       with:
+#         name: trivy-scan-results
+#         path: trivy-results.txt
+
+#   push-to-ecr:
+#     needs: trivy-scan
+#     runs-on: self-hosted
+#     steps:
+#     - name: Checkout Code
+#       uses: actions/checkout@v3
+
+#     - name: Authenticate with ECR
+#       env:
+#         AWS_REGION: us-east-1 # Replace with your region
+#       run: |
+#         echo "Authenticating with ECR..."
+#         aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin <YOUR_ACCOUNT_ID>.dkr.ecr.$AWS_REGION.amazonaws.com
+
+#     - name: Push Docker Image to ECR
+#       run: |
+#         echo "Pushing Docker image to ECR..."
+#         docker tag my-app:latest <YOUR_ACCOUNT_ID>.dkr.ecr.$AWS_REGION.amazonaws.com/my-app:latest
+#         docker push <YOUR_ACCOUNT_ID>.dkr.ecr.$AWS_REGION.amazonaws.com/my-app:latest
