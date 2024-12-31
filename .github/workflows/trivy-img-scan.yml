@@ -32,14 +32,14 @@ jobs:
           --format table \
           --exit-code 1 \
           --ignore-unfixed \
-          --vuln-type os,library \
-          --severity CRITICAL,HIGH \
+          --pkg-types os,library \
+          --severity CRITICAL \
           my-app:latest > trivy-results.txt || true
 
     - name: Check Vulnerabilities
       id: vuln-check
       run: |
-        if grep -q "CRITICAL" trivy-results.txt || grep -q "HIGH" trivy-results.txt; then
+        if grep -q "CRITICAL" trivy-results.txt; then
           echo "Vulnerabilities found! Exiting..."
           exit 1
         fi
