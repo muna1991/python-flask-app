@@ -9,7 +9,6 @@ on:
 jobs:
   Docker-build:
     runs-on: self-hosted
-    id: docker
     steps:
     - name: Checkout Code
       uses: actions/checkout@v3
@@ -26,7 +25,7 @@ jobs:
 
   Trivy-Scan:
     runs-on: self-hosted
-    needs: docker
+    needs: Docker-build
     steps:
     - name: Run Trivy Scan
       id: trivy-scan
